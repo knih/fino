@@ -1,5 +1,5 @@
 module Syntax where
-
+import Data.List
 ----------------------------------------
 -- Expressions
 ----------------------------------------
@@ -53,3 +53,16 @@ data TypeScheme = Forall [TypeId] Type
                 deriving (Show, Eq, Ord)
 
 type TypeEnv = [(Id, TypeScheme)]
+
+----------------------------------------
+-- Support functions for Env and TypeEnv
+----------------------------------------
+lookupEnv :: Id -> [(Id, b)] -> b
+lookupEnv x tenv = case lookup x tenv of
+                     Nothing -> error $ "unbound variable: " ++ show x
+                     Just t  -> t
+
+ext :: (Ord b, Eq b) => [(Id, b)] -> (Id, b) -> [(Id, b)]
+env `ext` (x,a) = if elem (x,a) env
+                  then error $ "duplicate variable: " ++ show x
+                  else insert (x,a) env

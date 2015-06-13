@@ -13,11 +13,6 @@ import Data.List(foldl', lookup, union, (\\), delete, nub)
 -- [τ1/α1,...,τn/αn]
 type TypeSubst = [(TypeId, Type)]
 
-lookupVar :: Id -> TypeEnv -> TypeScheme
-lookupVar x tenv = case lookup x tenv of
-                     Nothing -> error $ "unbound variable: " ++ show x
-                     Just t  -> t
-
 ------------------------------
 -- Occur check
 ------------------------------
@@ -141,7 +136,7 @@ infer tenv (EOp op e1 e2) t n = (s3 `compose` s2 `compose` s1, n3)
 
 infer tenv (EVar x) t n = (unify t t', n')
     where (t',n') = instantiate σ n
-          σ       = lookupVar x tenv
+          σ       = lookupEnv x tenv
 infer tenv (ELam x e) t n =
     let (b1, n1) = fresh n
         (b2, n2) = fresh n1
@@ -149,7 +144,7 @@ infer tenv (ELam x e) t n =
         b1'      = subst s1 b1
         b2'      = subst s1 b2
         tenv'    = subst s1 tenv
-        (s2,n3)  = infer ((x, Forall [] b1'):tenv') e b2' n2
+        (s2,n3)  = infer (tenv' `ext` (x, Forall [] b1')) e b2' n2
     in (s2 `compose` s1, n3)
 
 infer tenv (EApp e1 e2) ρ n =
@@ -164,11 +159,11 @@ infer tenv (ELet x e1 e2) ρ n =
         σ        = generalize (subst s1 tenv) (subst s1 b)
         tenv'    = subst s1 tenv
         ρ'       = subst s1 ρ
-        (s2, n3) = infer ((x, σ):tenv') e2 ρ' n2
+        (s2, n3) = infer (tenv' `ext` (x, σ)) e2 ρ' n2
     in (s2 `compose` s1, n3)
 
 infer tenv (EFix f e) ρ n =
-    infer ((f, Forall [] ρ):tenv) e ρ n
+    infer (tenv `ext` (f, Forall [] ρ)) e ρ n
 
 infer tenv (EIf e e1 e2) ρ n =
     let (s1, n1) = infer tenv e (TBase TBool) n

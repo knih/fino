@@ -14,6 +14,23 @@ import Data.List
 type TypeSubst = [(TypeId, Type)]
 
 ------------------------------
+-- Free type variables
+------------------------------
+class Free t where
+    ftv :: t -> [TypeId]
+
+instance Free Type where
+    ftv TBase{}  = []
+    ftv (TVar a) = [a]
+    ftv (TFun t1 t2) = ftv t1 `union` ftv t2
+
+instance Free TypeScheme where
+    ftv (Forall as t) = ftv t \\ as
+
+instance Free TypeEnv where
+    ftv tenv = foldr union [] [ftv(σ) | (_, σ) <- tenv]
+
+------------------------------
 -- Occur check
 ------------------------------
 occursCheck :: TypeId -> Type -> Bool
@@ -26,7 +43,6 @@ occursCheck a (TFun t1 t2) = occursCheck a t1 || occursCheck a t2
 ------------------------------
 class Substitutable t where
     subst    :: TypeSubst -> t -> t
-    freevars :: t -> [TypeId]
 
 instance Substitutable Type where
     subst s (TBase t)  = s `seq` TBase t
@@ -37,10 +53,6 @@ instance Substitutable Type where
         | otherwise = subst s (TVar b)
     subst s (TFun t1 t2) = TFun (subst s t1) (subst s t2)
 
-    freevars TBase{}      = []
-    freevars (TVar a)     = [a]
-    freevars (TFun t1 t2) = freevars t1 `union` freevars t2
-
 instance Substitutable TypeScheme where
     -- S σ = ∀β.S{β/a}t
     subst s (Forall as t) = Forall as $ subst s' t
@@ -49,12 +61,8 @@ instance Substitutable TypeScheme where
           eq [] _         = False
           eq (x:xs) (a,t) = x == a || eq xs (a,t)
 
-    freevars (Forall as t) = freevars t \\ as
-
 instance Substitutable TypeEnv where
     subst s tenv = [(v,subst s σ) | (v,σ) <- tenv]
-
-    freevars tenv = foldr union [] [freevars(σ) | (_, σ) <- tenv]
 
 -- Composition of type substitutions
 compose :: TypeSubst -> TypeSubst -> TypeSubst
@@ -109,7 +117,7 @@ scheme Lt  = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
 -- Generalize a type to a type scheme
 generalize :: TypeEnv -> Type -> TypeScheme
 generalize tenv t = Forall as t
-    where as = (freevars t) \\ (freevars tenv)
+    where as = (ftv t) \\ (ftv tenv)
 
 -- Instantiate a type scheme to a type which has new type variables
 -- without universal quantifiers.
@@ -118,7 +126,7 @@ generalize tenv t = Forall as t
 --  --->  [β1...βn/α1...αn]τ  (which may occur type variables β1...βn)
 instantiate :: TypeScheme -> TypeId -> (Type, TypeId)
 instantiate (Forall as t) n =
-    let (as',n') = freshvars (length as) n
+    let (as',n') = ftv (length as) n
         s   = zip as as'
     in (subst s t, n')
 

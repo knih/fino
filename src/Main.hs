@@ -10,7 +10,7 @@ import System.IO (hFlush, stdout)
 
 main :: IO ()
 main = do
-  putStrLn $ "Fino 0.1.0.0"
+  putStrLn $ "Fino 0.2.0.0"
   repl
   return ()
 
@@ -33,12 +33,12 @@ repl = do
 
 run :: String -> IO ()
 run s = do
-  e <- parseExpr s
+  let e = parseExpr s
   putStrLn $ "expr:  " ++ show e
   let t = inferExpr e
   putStrLn $ "type:  " ++ show t
   let v = eval e []
-  putStrLn $ "value: " ++ show v ++ " :: " ++ show t
+  putStrLn $ "value: " ++ show v
 
 help :: IO ()
 help = putStrLn "Type `:help` for help, `:exit` to exit" 

@@ -111,8 +111,8 @@ scheme And = Forall [] (TFun (TBase TBool) (TFun (TBase TBool) (TBase TBool)))
 scheme Or  = Forall [] (TFun (TBase TBool) (TFun (TBase TBool) (TBase TBool)))
 
 scheme Eq  = Forall [0] (TFun (TVar 0) (TFun (TVar 0) (TBase TBool)))
-scheme Gt  = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
-scheme Lt  = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
+scheme Gt  = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TBool)))
+scheme Lt  = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TBool)))
 
 -- Generalize a type to a type scheme
 generalize :: TypeEnv -> Type -> TypeScheme

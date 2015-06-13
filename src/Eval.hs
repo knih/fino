@@ -22,9 +22,10 @@ eval (ELet x e1 e2) env = eval e2 env'
       env' = env `ext` (x,v)
 eval (EFix f e) env = eval e env'
     where env' = env `ext` (f, (VThunk (EFix f e) env))
-eval (EIf e e1 e2) env = if b then eval e1 env else eval e2 env
-    where VBool b = eval e env
+eval (EIf e1 e2 e3) env = if b then eval e2 env else eval e3 env
+    where VBool b = eval e1 env
 
+binop :: BinOp -> Expr -> Expr -> Env -> Value
 binop op e1 e2 env =
     case (op, eval e1 env, eval e2 env) of
       (Add, VInt n1,  VInt n2)  -> VInt $ n1 + n2
@@ -36,5 +37,5 @@ binop op e1 e2 env =
       (Eq,  VBool b1, VBool b2) -> VBool $ b1 == b2
       (Gt,  VInt n1,  VInt n2)  -> VBool $ n1 > n2
       (Lt,  VInt n1,  VInt n2)  -> VBool $ n1 < n2
-      (_,_,_) -> error "FATAL ERROR"
+      (_,_,_) -> error $ "FATAL ERROR: " ++ show op ++ ":" ++ show e1 ++ ", " ++ show e2
       -- Last one should be unreachable when the expression is typed.

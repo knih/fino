@@ -7,7 +7,7 @@
 module Infer (inferExpr, infer, subst) where
 
 import Syntax
-import Data.List(foldl', lookup, union, (\\), delete, nub)
+import Data.List
 
 -- Type substitutions
 -- [τ1/α1,...,τn/αn]
@@ -125,22 +125,22 @@ instantiate (Forall as t) n =
 -- Type inference
 infer :: TypeEnv -> Expr -> Type -> TypeId -> (TypeSubst, TypeId)
 
-infer tenv (ELit (LInt _)) t n  = (unify t (TBase TInt), n)
-infer tenv (ELit (LBool _)) t n = (unify t (TBase TBool), n)
+infer tenv (ELit (LInt _))  ρ n = (unify ρ (TBase TInt), n)
+infer tenv (ELit (LBool _)) ρ n = (unify ρ (TBase TBool), n)
 
-infer tenv (EOp op e1 e2) t n = (s3 `compose` s2 `compose` s1, n3)
+infer tenv (EOp op e1 e2) ρ n = (s3 `compose` s2 `compose` s1, n3)
     where (TFun t1 (TFun t2 t3),n1) = instantiate (scheme op) n
-          s1      = unify t t3
+          s1      = unify ρ t3
           (s2,n2) = infer (subst s1 tenv) e1 (subst s1 t1) n1
           (s3,n3) = infer (subst (s2 `compose` s1) tenv) e2 (subst (s2 `compose` s1) t2) n2
 
-infer tenv (EVar x) t n = (unify t t', n')
-    where (t',n') = instantiate σ n
+infer tenv (EVar x) ρ n = (unify ρ ρ', n')
+    where (ρ',n') = instantiate σ n
           σ       = lookupEnv x tenv
-infer tenv (ELam x e) t n =
+infer tenv (ELam x e) ρ n =
     let (b1, n1) = fresh n
         (b2, n2) = fresh n1
-        s1       = unify t (TFun b1 b2)
+        s1       = unify ρ (TFun b1 b2)
         b1'      = subst s1 b1
         b2'      = subst s1 b2
         tenv'    = subst s1 tenv
@@ -165,20 +165,20 @@ infer tenv (ELet x e1 e2) ρ n =
 infer tenv (EFix f e) ρ n =
     infer (tenv `ext` (f, Forall [] ρ)) e ρ n
 
-infer tenv (EIf e e1 e2) ρ n =
-    let (s1, n1) = infer tenv e (TBase TBool) n
+infer tenv (EIf e1 e2 e3) ρ n =
+    let (s1, n1) = infer tenv e1 (TBase TBool) n
         ρ1       = subst s1 ρ
         tenv1    = subst s1 tenv
-        (s2, n2) = infer tenv1 e1 ρ1 n1
+        (s2, n2) = infer tenv1 e2 ρ1 n1
         ρ2       = subst s2 ρ1
         tenv2    = subst s2 tenv1
-        (s3, n3) = infer tenv2 e2 ρ2 n2
+        (s3, n3) = infer tenv2 e3 ρ2 n2
     in (s1 `compose` s2 `compose` s3, n3)
 
 
 inferExpr :: Expr -> Type
 inferExpr e = t'
     where
-      (t, n) = fresh 0
-      (s, _) = infer [] e t n
-      t'     = (subst s t)
+      (ρ, n) = fresh 0
+      (s, _) = infer [] e ρ n
+      t'     = (subst s ρ)

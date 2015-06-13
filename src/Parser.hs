@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Parser (parseExpr) where
+module Parser (parseExpr, test) where
 
 import Syntax
 import Lexer
@@ -8,15 +8,10 @@ import Text.Parsec
 import Text.Parsec.String (Parser)
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as Token
-import qualified Data.Text.Lazy as L
-import Data.Functor.Identity
 
-whiteSpace :: Parser () 
-whiteSpace = Token.whiteSpace lexer
-
-int :: Parser Expr
-int = do
-  n <- (Token.integer lexer)
+nat :: Parser Expr
+nat = do
+  n <- (Token.natural lexer)
   return (ELit (LInt (fromIntegral n)))
 
 bool :: Parser Expr
@@ -31,13 +26,13 @@ var = do
 fun :: Parser Expr
 fun = do
   reserved "fun"
-  args <- many identifier
+  args <- many1 identifier
   reservedOp "->"
   body <- expr
   return $ foldr ELam body args
 
-letin :: Parser Expr
-letin = do
+let_ :: Parser Expr
+let_ = do
   reserved "let"
   x <- identifier
   reservedOp "="
@@ -50,46 +45,53 @@ fix :: Parser Expr
 fix = do
   reserved "fix"
   f <- identifier
-  e <- term
+  e <- expr
   return (EFix f e)
 
 if_ :: Parser Expr
 if_ = do
   reserved "if"
-  e <- expr
-  reserved "then"
   e1 <- expr
-  reserved "else"
+  reserved "then"
   e2 <- expr
-  return (EIf e e1 e2)
+  reserved "else"
+  e3 <- expr
+  return (EIf e1 e2 e3)
 
-term :: Parser Expr
-term = parens expr
-       <|> int
-       <|> bool
-       <|> var
-       <|> letin
-       <|> fun
-       <|> fix
-       <|> if_
+arg :: Parser Expr
+arg = parens expr <|> nat <|> bool <|> var
+
+app :: Parser Expr
+app = chainl1 arg (pure EApp)
 
 binop :: Parser Expr
-binop = buildExpressionParser table term
+binop = buildExpressionParser table app
     where
       table =
-          [[Infix (reservedOp "*" *> pure (EOp Mul)) AssocLeft],
-           [Infix (reservedOp "+" *> pure (EOp Add)) AssocLeft,
-            Infix (reservedOp "-" *> pure (EOp Sub)) AssocLeft],
-           [Infix (reservedOp "==" *> pure (EOp Eq)) AssocLeft,
-            Infix (reservedOp ">"  *> pure (EOp Gt)) AssocLeft,
-            Infix (reservedOp "<"  *> pure (EOp Lt)) AssocLeft],
+          [[Infix (reservedOp "*"  *> pure (EOp Mul)) AssocLeft],
+           [Infix (reservedOp "+"  *> pure (EOp Add)) AssocLeft,
+            Infix (reservedOp "-"  *> pure (EOp Sub)) AssocLeft],
+           [Infix (reservedOp "==" *> pure (EOp Eq))  AssocLeft,
+            Infix (reservedOp ">"  *> pure (EOp Gt))  AssocLeft,
+            Infix (reservedOp "<"  *> pure (EOp Lt))  AssocLeft],
            [Infix (reservedOp "&&" *> pure (EOp And)) AssocRight,
-            Infix (reservedOp "||" *> pure (EOp Or)) AssocRight]]
+            Infix (reservedOp "||" *> pure (EOp Or))  AssocRight]]
+
+letfunfix :: Parser Expr
+letfunfix  = let_ <|> fun <|> fix
 
 expr :: Parser Expr
-expr = chainl1 binop (return EApp)
+expr = letfunfix <|> if_ <|> binop
 
-parseExpr :: String -> IO Expr
+-- | Parser
+parseExpr :: String -> Expr
 parseExpr input = case parse (whiteSpace *> expr <* eof) "<stdin>" input of
-                    Left err -> fail $ "parse error at " ++ show err
-                    Right e  -> return e
+                    Left err -> error $ "parse error at " ++ show err
+                    Right e  -> e
+
+test :: Show a => Parser a -> String -> IO ()
+test p input = parseTest (do { whiteSpace
+                            ; x <- p
+                            ; eof
+                            ; return x
+                            }) input

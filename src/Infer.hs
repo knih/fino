@@ -4,7 +4,7 @@
 -- Type inference using algorithm M
 -- which is a context-sensitive, top down algorithm.
 
-module Infer (inferExpr) where
+module Infer (inferExpr, infer, subst) where
 
 import Syntax
 import Data.List(foldl', lookup, union, (\\), delete, nub)

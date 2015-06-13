@@ -76,3 +76,6 @@ contents p = do
   r <- p
   eof
   return r
+
+whiteSpace :: Parser ()
+whiteSpace = Token.whiteSpace lexer

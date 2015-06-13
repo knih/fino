@@ -16,7 +16,7 @@ data Expr = ELit Lit
           | EFix Id Expr         -- fix f \x.e
             deriving (Show, Eq, Ord)
 
-data Lit = LInt Int
+data Lit = LInt Integer
          | LBool Bool
            deriving (Show, Eq, Ord)
 
@@ -25,7 +25,7 @@ data BinOp = Add | Sub | Mul
            | Eq | Gt | Lt
              deriving (Show, Eq, Ord)
 
-data Value = VInt  Int
+data Value = VInt  Integer
            | VBool Bool
            | VClos Id Expr Env
            | VThunk Expr Env

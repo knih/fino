@@ -31,15 +31,7 @@ instance Free TypeEnv where
     ftv tenv = foldr union [] [ftv(σ) | (_, σ) <- tenv]
 
 ------------------------------
--- Occur check
-------------------------------
-occursCheck :: TypeId -> Type -> Bool
-occursCheck a (TBase t)    = False
-occursCheck a (TVar b)     = a == b
-occursCheck a (TFun t1 t2) = occursCheck a t1 || occursCheck a t2
-
-------------------------------
--- Applying type substitution
+-- Type substitution
 ------------------------------
 class Substitutable t where
     subst    :: TypeSubst -> t -> t
@@ -68,6 +60,14 @@ instance Substitutable TypeEnv where
 compose :: TypeSubst -> TypeSubst -> TypeSubst
 s2 `compose` s1 = s1' ++ s2
     where s1' =  map (\(a, t) -> (a, subst s2 t)) s1
+
+------------------------------
+-- Occur check
+------------------------------
+occursCheck :: TypeId -> Type -> Bool
+occursCheck a (TBase t)    = False
+occursCheck a (TVar b)     = a == b
+occursCheck a (TFun t1 t2) = occursCheck a t1 || occursCheck a t2
 
 ------------------------------
 -- Unification
@@ -126,8 +126,8 @@ generalize tenv t = Forall as t
 --  --->  [β1...βn/α1...αn]τ  (which may occur type variables β1...βn)
 instantiate :: TypeScheme -> TypeId -> (Type, TypeId)
 instantiate (Forall as t) n =
-    let (as',n') = ftv (length as) n
-        s   = zip as as'
+    let (bs,n') = freshvars (length as) n
+        s   = zip as bs
     in (subst s t, n')
 
 -- Type inference
@@ -145,14 +145,13 @@ infer tenv (EOp op e1 e2) ρ n = (s3 `compose` s2 `compose` s1, n3)
 infer tenv (EVar x) ρ n = (unify ρ ρ', n')
     where (ρ',n') = instantiate σ n
           σ       = lookupEnv x tenv
+
 infer tenv (ELam x e) ρ n =
     let (b1, n1) = fresh n
         (b2, n2) = fresh n1
         s1       = unify ρ (TFun b1 b2)
-        b1'      = subst s1 b1
-        b2'      = subst s1 b2
-        tenv'    = subst s1 tenv
-        (s2,n3)  = infer (tenv' `ext` (x, Forall [] b1')) e b2' n2
+        (s2,n3)  = infer ((subst s1 tenv) `ext` (x, Forall [] (subst s1 b1)))
+                   e (subst s1 b2) n2
     in (s2 `compose` s1, n3)
 
 infer tenv (EApp e1 e2) ρ n =
@@ -163,25 +162,21 @@ infer tenv (EApp e1 e2) ρ n =
 
 infer tenv (ELet x e1 e2) ρ n =
     let (b,n1)   = fresh n
-        (s1, n2) = infer tenv e1 b n1
+        (s1,n2)  = infer tenv e1 b n1
         σ        = generalize (subst s1 tenv) (subst s1 b)
-        tenv'    = subst s1 tenv
-        ρ'       = subst s1 ρ
-        (s2, n3) = infer (tenv' `ext` (x, σ)) e2 ρ' n2
+        (s2,n3)  = infer ((subst s1 tenv) `ext` (x, σ)) e2 (subst s1 ρ) n2
     in (s2 `compose` s1, n3)
 
 infer tenv (EFix f e) ρ n =
     infer (tenv `ext` (f, Forall [] ρ)) e ρ n
 
 infer tenv (EIf e1 e2 e3) ρ n =
-    let (s1, n1) = infer tenv e1 (TBase TBool) n
-        ρ1       = subst s1 ρ
-        tenv1    = subst s1 tenv
-        (s2, n2) = infer tenv1 e2 ρ1 n1
+    let (s1,n1)  = infer tenv e1 (TBase TBool) n
+        (s2,n2)  = infer (subst s1 tenv) e2 (subst s1 ρ) n1
         ρ2       = subst s2 ρ1
         tenv2    = subst s2 tenv1
-        (s3, n3) = infer tenv2 e3 ρ2 n2
-    in (s1 `compose` s2 `compose` s3, n3)
+        (s3,n3)  = infer (subst (s2 `compose` s1) tenv) e3 (subst (s2 `compose` s1) ρ) n2
+    in (s3 `compose` s2 `compose` s1, n3)
 
 
 inferExpr :: Expr -> Type

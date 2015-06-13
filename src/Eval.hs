@@ -9,6 +9,7 @@ eval (ELit (LBool b)) _ = VBool b
 eval (EOp op e1 e2) env = binop op e1 e2 env
 eval (EVar x) env =
     case lookupEnv x env of
+      VThunk (EFix f e) env' -> eval (EFix f e) env'
       v                      -> v
 eval (ELam x e) env = VClos x e env
 eval (EApp e1 e2) env = v2 `seq` eval e3 ((x, v2):env')
@@ -18,10 +19,9 @@ eval (EApp e1 e2) env = v2 `seq` eval e3 ((x, v2):env')
 eval (ELet x e1 e2) env = eval e2 env'
     where
       v    = eval e1 env
-      env' = insert (x,v) env
+      env' = env `ext` (x,v)
 eval (EFix f e) env = eval e env'
-    where env' = env `ext` (f, (VClos f (EFix f e) env))
-
+    where env' = env `ext` (f, (VThunk (EFix f e) env))
 eval (EIf e e1 e2) env = if b then eval e1 env else eval e2 env
     where VBool b = eval e env
 

@@ -28,6 +28,7 @@ data BinOp = Add | Sub | Mul
 data Value = VInt  Int
            | VBool Bool
            | VClos Id Expr Env
+           | VThunk Expr Env
              deriving (Show, Ord, Eq)
 
 ----------------------------------------

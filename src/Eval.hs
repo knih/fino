@@ -1,7 +1,6 @@
 module Eval(eval) where
 
 import Syntax
-import Data.List (insert)
 
 eval :: Expr -> Env -> Value
 eval (ELit (LInt n))  _ = VInt n

@@ -33,6 +33,10 @@ instance Free TypeEnv where
 ------------------------------
 -- Type substitution
 ------------------------------
+-- Auxiliary functions
+supp :: TypeSubst -> [TypeId]
+supp s = [a | (a,_) <- s, subst s (TVar a) /= (TVar a)]
+
 class Substitutable t where
     subst    :: TypeSubst -> t -> t
 
@@ -46,26 +50,27 @@ instance Substitutable Type where
     subst s (TFun t1 t2) = TFun (subst s t1) (subst s t2)
 
 instance Substitutable TypeScheme where
-    -- S σ = ∀β.S{β/a}t
+    -- S σ = ∀α.S'τ  where S' = S \ [τ/α]
     subst s (Forall as t) = Forall as $ subst s' t
         where
           s' = dropWhile (eq as) s
           eq [] _         = False
-          eq (x:xs) (a,t) = x == a || eq xs (a,t)
+          eq (x:xs) (a,t') = x == a || eq xs (a,t')
 
 instance Substitutable TypeEnv where
     subst s tenv = [(v,subst s σ) | (v,σ) <- tenv]
 
 -- Composition of type substitutions
 compose :: TypeSubst -> TypeSubst -> TypeSubst
-s2 `compose` s1 = s1' ++ s2
-    where s1' =  map (\(a, t) -> (a, subst s2 t)) s1
+r `compose` s =
+    [(a, subst r (subst s (TVar a))) | a <- supp(s)]
+    `union` [(a, subst r (TVar a)) | a <- supp(r) \\ supp(s)]
 
 ------------------------------
 -- Occur check
 ------------------------------
 occursCheck :: TypeId -> Type -> Bool
-occursCheck a (TBase t)    = False
+occursCheck _ TBase{}    = False
 occursCheck a (TVar b)     = a == b
 occursCheck a (TFun t1 t2) = occursCheck a t1 || occursCheck a t2
 
@@ -78,17 +83,11 @@ unify (TFun t11 t12) (TFun t21 t22) = s1 `compose` s2
     where
       s1 = unify t11 t21
       s2 = unify (subst s1 t12) (subst s1 t22)
-unify (TVar a) t  = bind a t
-unify t (TVar a)  = bind a t
+unify (TVar a) t | occursCheck a t == False = [(a,t)]
+unify t (TVar a)  = unify (TVar a) t
 unify t1 t2 =
-    error $ "unification error: Contradicting constraints  " ++
+    error $ "unification error: " ++
               "[" ++ show t1 ++ "∽" ++ show t2 ++ "]"
-
-bind :: TypeId -> Type -> TypeSubst
-bind a t
-    | t == TVar a             = []
-    | occursCheck a t == True = error $ "unification error: Infinite type"
-    | otherwise               = [(a, t)]
 
 ------------------------------
 -- Type inference
@@ -96,13 +95,15 @@ bind a t
 -- Generate a fresh type variable
 fresh :: TypeId -> (Type, TypeId)
 fresh n = (TVar n, n+1)
-
+-- Generate fresh type variables
+freshvars :: Int -> TypeId -> ([Type], TypeId)
 freshvars 0 n = ([], n)
 freshvars i n = let (v, n1)  = fresh n
                     (vs, n2) = freshvars (i-1) n1
                 in (v:vs, n2)
 
 -- Type schemes of binary operators
+scheme :: BinOp -> TypeScheme
 scheme Add = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
 scheme Sub = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
 scheme Mul = Forall [] (TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
@@ -133,8 +134,8 @@ instantiate (Forall as t) n =
 -- Type inference
 infer :: TypeEnv -> Expr -> Type -> TypeId -> (TypeSubst, TypeId)
 
-infer tenv (ELit (LInt _))  ρ n = (unify ρ (TBase TInt), n)
-infer tenv (ELit (LBool _)) ρ n = (unify ρ (TBase TBool), n)
+infer _ (ELit (LInt _))  ρ n = (unify ρ (TBase TInt), n)
+infer _ (ELit (LBool _)) ρ n = (unify ρ (TBase TBool), n)
 
 infer tenv (EOp op e1 e2) ρ n = (s3 `compose` s2 `compose` s1, n3)
     where (TFun t1 (TFun t2 t3),n1) = instantiate (scheme op) n
@@ -173,15 +174,13 @@ infer tenv (EFix f e) ρ n =
 infer tenv (EIf e1 e2 e3) ρ n =
     let (s1,n1)  = infer tenv e1 (TBase TBool) n
         (s2,n2)  = infer (subst s1 tenv) e2 (subst s1 ρ) n1
-        ρ2       = subst s2 ρ1
-        tenv2    = subst s2 tenv1
         (s3,n3)  = infer (subst (s2 `compose` s1) tenv) e3 (subst (s2 `compose` s1) ρ) n2
     in (s3 `compose` s2 `compose` s1, n3)
 
 
 inferExpr :: Expr -> Type
-inferExpr e = t'
+inferExpr e = t
     where
       (ρ, n) = fresh 0
       (s, _) = infer [] e ρ n
-      t'     = (subst s ρ)
+      t      = (subst s ρ)

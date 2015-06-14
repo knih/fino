@@ -41,6 +41,17 @@ let_ = do
   e2 <- expr
   return (ELet x e1 e2)
 
+letrec :: Parser Expr
+letrec = do
+  reserved "let"
+  reserved "rec"
+  x <- identifier
+  reservedOp "="
+  e1 <- expr
+  reserved "in"
+  e2 <- expr
+  return (ELet x (EFix x e1) e2)
+       
 fix :: Parser Expr
 fix = do
   reserved "fix"
@@ -78,7 +89,7 @@ binop = buildExpressionParser table app
             Infix (reservedOp "||" *> pure (EOp Or))  AssocRight]]
 
 letfunfix :: Parser Expr
-letfunfix  = let_ <|> fun <|> fix
+letfunfix  = (try letrec) <|> let_ <|> fix <|> fun
 
 expr :: Parser Expr
 expr = letfunfix <|> if_ <|> binop

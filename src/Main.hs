@@ -10,7 +10,7 @@ import System.IO (hFlush, stdout)
 
 main :: IO ()
 main = do
-  putStrLn $ "Fino 0.2.0.0"
+  putStrLn $ "Fino 0.2.1.0"
   repl
   return ()
 

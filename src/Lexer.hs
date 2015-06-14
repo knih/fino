@@ -12,6 +12,7 @@ reservedNames :: [String]
 reservedNames = [
     "fun",
     "let",
+    "rec",
     "in",
     "fix",
     "if",
@@ -40,14 +41,17 @@ lexer = Token.makeTokenParser $ Token.LanguageDef
   , Token.commentEnd      = "-}"
   , Token.commentLine     = "--"
   , Token.nestedComments  = True
-  , Token.identStart      = lower <|> char '_'
-  , Token.identLetter     = alphaNum <|> oneOf "_'"
+  , Token.identStart      = lower <|> char '_' :: Parser Char
+  , Token.identLetter     = alphaNum <|> oneOf "_'" :: Parser Char
   , Token.opStart         = oneOf ":!#$%&*+./<=>?@\\^|-~"
   , Token.opLetter        = oneOf ":!#$%&*+./<=>?@\\^|-~"
   , Token.reservedNames   = reservedNames
   , Token.reservedOpNames = reservedOps
-  , Token.caseSensitive   = True
+  , Token.caseSensitive   = False
   }
+
+identifier :: Parser String
+identifier = Token.identifier lexer
 
 reserved :: String -> Parser ()
 reserved = Token.reserved lexer
@@ -55,27 +59,8 @@ reserved = Token.reserved lexer
 reservedOp :: String -> Parser ()
 reservedOp = Token.reservedOp lexer
 
-identifier :: Parser String
-identifier = Token.identifier lexer
-
 parens :: Parser a -> Parser a
 parens = Token.parens lexer
-
-semiSep :: Parser a -> Parser [a]
-semiSep = Token.semiSep lexer
-
-semi :: Parser String
-semi = Token.semi lexer
-
-symbol :: String -> Parser String
-symbol = Token.symbol lexer
-
-contents :: Parser a -> Parser a
-contents p = do
-  Token.whiteSpace lexer
-  r <- p
-  eof
-  return r
 
 whiteSpace :: Parser ()
 whiteSpace = Token.whiteSpace lexer

@@ -27,6 +27,8 @@ expressions =
                             ~?= (EFix "f" (ELam "x" (EVar "x")))
     , "Parser If"       ~: parseExpr "if True then 1 else 2"
                             ~?= (EIf (ELit (LBool True)) (ELit (LInt 1)) (ELit (LInt 2)))
+    , "Parser Let rec"  ~: parseExpr "let rec fib = (fun x -> if x==0 || x==1 then 1 else fib (x-1) + fib (x-2)) in fib 10"
+                            ~?= (ELet "fib" (EFix "fib" (ELam "x" (EIf (EOp Or (EOp Eq (EVar "x") (ELit (LInt 0))) (EOp Eq (EVar "x") (ELit (LInt 1)))) (ELit (LInt 1)) (EOp Add (EApp (EVar "fib") (EOp Sub (EVar "x") (ELit (LInt 1)))) (EApp (EVar "fib") (EOp Sub (EVar "x") (ELit (LInt 2)))))))) (EApp (EVar "fib") (ELit (LInt 10))))
         ]
 
 precedence =[

@@ -7,7 +7,7 @@ name:                fino
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.2.0.0
+version:             0.2.1.0
 synopsis:            A Toy Functional Language with Polymorphic Type Inference
 description: {
 Fino is a tiny programming language implemented in Haskell. 

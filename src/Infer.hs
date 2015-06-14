@@ -79,15 +79,21 @@ occursCheck a (TFun t1 t2) = occursCheck a t1 || occursCheck a t2
 ------------------------------
 unify :: Type -> Type -> TypeSubst
 unify (TBase t1) (TBase t2) | t1 == t2 = []
-unify (TFun t11 t12) (TFun t21 t22) = s1 `compose` s2
+unify (TFun t11 t12) (TFun t21 t22) = s2 `compose` s1
     where
       s1 = unify t11 t21
       s2 = unify (subst s1 t12) (subst s1 t22)
-unify (TVar a) t | occursCheck a t == False = [(a,t)]
-unify t (TVar a)  = unify (TVar a) t
+unify (TVar a) t  = bind a t
+unify t (TVar a)  = bind a t
 unify t1 t2 =
-    error $ "unification error: " ++
+    error $ "unification error: Contradicting constraints  " ++
               "[" ++ show t1 ++ "∽" ++ show t2 ++ "]"
+
+bind :: TypeId -> Type -> TypeSubst
+bind a t
+    | t == TVar a             = []
+    | occursCheck a t == True = error $ "unification error: Infinite type"
+    | otherwise               = [(a, t)]
 
 ------------------------------
 -- Type inference
@@ -128,13 +134,13 @@ generalize tenv t = Forall as t
 instantiate :: TypeScheme -> TypeId -> (Type, TypeId)
 instantiate (Forall as t) n =
     let (bs,n') = freshvars (length as) n
-        s   = zip as bs
+        s       = zip as bs
     in (subst s t, n')
 
 -- Type inference
 infer :: TypeEnv -> Expr -> Type -> TypeId -> (TypeSubst, TypeId)
 
-infer _ (ELit (LInt _))  ρ n = (unify ρ (TBase TInt), n)
+infer _ (ELit (LInt _))  ρ n = (unify ρ (TBase TInt),  n)
 infer _ (ELit (LBool _)) ρ n = (unify ρ (TBase TBool), n)
 
 infer tenv (EOp op e1 e2) ρ n = (s3 `compose` s2 `compose` s1, n3)
@@ -143,17 +149,16 @@ infer tenv (EOp op e1 e2) ρ n = (s3 `compose` s2 `compose` s1, n3)
           (s2,n2) = infer (subst s1 tenv) e1 (subst s1 t1) n1
           (s3,n3) = infer (subst (s2 `compose` s1) tenv) e2 (subst (s2 `compose` s1) t2) n2
 
-infer tenv (EVar x) ρ n = (unify ρ ρ', n')
-    where (ρ',n') = instantiate σ n
-          σ       = lookupEnv x tenv
+infer tenv (EVar x) ρ n = (unify ρ t, n')
+    where (t,n') = instantiate σ n
+          σ      = lookupEnv x tenv
 
 infer tenv (ELam x e) ρ n =
     let (b1, n1) = fresh n
         (b2, n2) = fresh n1
         s1       = unify ρ (TFun b1 b2)
-        (s2,n3)  = infer ((subst s1 tenv) `ext` (x, Forall [] (subst s1 b1)))
-                   e (subst s1 b2) n2
-    in (s2 `compose` s1, n3)
+        (s2,n3)  = infer ((subst s1 tenv) `ext` (x, Forall [] (subst s1 b1))) e (subst s1 b2) n2
+     in (s2 `compose` s1, n3)
 
 infer tenv (EApp e1 e2) ρ n =
     let (b,n1)  = fresh n

@@ -12,7 +12,7 @@ import qualified Text.Parsec.Token as Token
 nat :: Parser Expr
 nat = do
   n <- (Token.natural lexer)
-  return (ELit (LInt (fromIntegral n)))
+  return (ELit (LInt n))
 
 bool :: Parser Expr
 bool = (reserved "True" >> return (ELit (LBool True)))
@@ -34,24 +34,26 @@ fun = do
 let_ :: Parser Expr
 let_ = do
   reserved "let"
-  x <- identifier
+  name <- identifier
+  args <- many identifier
   reservedOp "="
   e1 <- expr
   reserved "in"
   e2 <- expr
-  return (ELet x e1 e2)
+  return $ ELet name (foldr ELam e1 args) e2
 
 letrec :: Parser Expr
 letrec = do
   reserved "let"
   reserved "rec"
-  x <- identifier
+  name <- identifier
+  args <- many identifier
   reservedOp "="
   e1 <- expr
   reserved "in"
   e2 <- expr
-  return (ELet x (EFix x e1) e2)
-       
+  return (ELet name (EFix name (foldr ELam e1 args)) e2)
+
 fix :: Parser Expr
 fix = do
   reserved "fix"

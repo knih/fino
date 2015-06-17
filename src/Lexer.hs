@@ -11,28 +11,17 @@ type Op a = Expr.Operator String () Identity a
 reservedNames :: [String]
 reservedNames = [
     "fun",
-    "let",
-    "rec",
-    "in",
+    "let", "rec", "in",
     "fix",
-    "if",
-    "then",
-    "else"
+    "if", "then", "else"
   ]
 
 reservedOps :: [String]
 reservedOps = [
-    "->",
-    "\\",
-    "+",
-    "*",
-    "-",
-    "=",
-    ">",
-    "<",
-    "&",
-    "|",
-    "="
+    "->", "=",
+    "+", "-", "*",
+    ">","<",
+    "&", "|"
   ]
 
 lexer :: Token.TokenParser ()

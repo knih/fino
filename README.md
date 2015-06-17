@@ -93,5 +93,14 @@ type:  TBase TInt
 value: VInt 89
 ```
 
+The above expression can be written using `let rec` as follows:
+```ocaml
+let rec fib x =
+    if x==0||x==1
+    then 1
+    else fib (x-1) + fib (x-2)
+in fib 10
+```
+
 ## References
 [1]: Oukseh Lee and Kwangkeun Yi. 1998. Proofs about a folklore let-polymorphic type inference algorithm. ACM Trans. Program. Lang. Syst. 20, 4 (July 1998), 707-723.
